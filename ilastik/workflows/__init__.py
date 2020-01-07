@@ -109,12 +109,12 @@ except ImportError as e:
 # except ImportError as e:
 #     logger.warning("Failed to import multicut workflow; check dependencies: " + str(e))
 
-try:
-    from .edgeTrainingWithMulticut import EdgeTrainingWithMulticutWorkflow
-
-    WORKFLOW_CLASSES += [EdgeTrainingWithMulticutWorkflow]
-except ImportError as e:
-    logger.warning("Failed to import 'Edge Training With Multicut' workflow; check dependencies: " + str(e))
+# try:
+#     from .edgeTrainingWithMulticut import EdgeTrainingWithMulticutWorkflow
+#
+#     WORKFLOW_CLASSES += [EdgeTrainingWithMulticutWorkflow]
+# except ImportError as e:
+#     logger.warning("Failed to import 'Edge Training With Multicut' workflow; check dependencies: " + str(e))
 
 try:
     from .counting import CountingWorkflow
