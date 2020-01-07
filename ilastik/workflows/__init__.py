@@ -28,6 +28,11 @@ WORKFLOW_CLASSES = []
 
 import ilastik.config
 
+# VIB classifier using deep learning
+from .dlClassification import DLClassificationWorkflow
+
+WORKFLOW_CLASSES += [DLClassificationWorkflow]
+
 from .pixelClassification import PixelClassificationWorkflow
 
 WORKFLOW_CLASSES += [PixelClassificationWorkflow]
