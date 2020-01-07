@@ -228,8 +228,8 @@ class DLClassGui(LayerViewerGui):
         self.drawer = uic.loadUi(drawerPath)
 
         self.drawer.comboBox.clear()
-        self.drawer.liveUpdateButton.clicked.connect(self.pred_nn)
-        self.drawer.addModel.clicked.connect(self.addModels)
+        self.drawer.liveUpdateButton.clicked.connect(self.dlPredict)
+        self.drawer.addModel.clicked.connect(self.addModel)
 
         if self.topLevelOperator.ModelPath.ready():
 
@@ -270,7 +270,7 @@ class DLClassGui(LayerViewerGui):
     def setupLayers(self):
         """
         which layers will be shown in the layerviewergui.
-        Triggers the prediciton by setting the layer on visible
+        Triggers the prediction by setting the layer on visible
         """
 
         inputSlot = self.topLevelOperator.InputImage
@@ -313,16 +313,13 @@ class DLClassGui(LayerViewerGui):
 
         return layers
 
-    def add_DL_classifiers(self, filename):
+    def add_DL_classifier(self, filename):
         """
         Adds the chosen FilePath to the classifierDictionary and to the ComboBox
         """
 
         # split path string
-        modelname = os.path.basename(os.path.normpath(filename[0]))
-
-        print(filename)
-        print(filename[0])
+        modelname = os.path.basename(os.path.normpath(filename))
 
         # Statement for importing the same classifier twice
         if modelname in self.classifiers.keys():
@@ -334,21 +331,21 @@ class DLClassGui(LayerViewerGui):
             # self.classifiers[modelname] = TikTorchLazyflowClassifier(None, filename[0], halo_size, batch_size)
 
             # workAround
-            self.classifiers[modelname] = filename[0]
+            self.classifiers[modelname] = filename
 
             # clear first the comboBox or addItems will duplicate names
             self.drawer.comboBox.clear()
             self.drawer.comboBox.addItems(self.classifiers)
 
             if self.topLevelOperator.SaveFullModel.value == True:
-                logger.debug(f"dlClassGui add_DL_classifiers(): loading {filename[0]}")
-                object_ = load_net(filename[0])
+                logger.debug(f"dlClassGui add_DL_classifiers(): loading {filename}")
+                object_ = load_net(filename)
                 self.topLevelOperator.FullModel.setValue(object_)
 
             else:
                 self.topLevelOperator.ModelPath.setValue(self.classifiers)
 
-    def pred_nn(self):
+    def dlPredict(self):
         """
         When LivePredictionButton is clicked.
         Sets the ClassifierSlotValue for Prediction.
@@ -447,23 +444,23 @@ class DLClassGui(LayerViewerGui):
         else:
             self._viewerControlUi.checkShowPredictions.setCheckState(Qt.PartiallyChecked)
 
-    def addModels(self):
+    def addModel(self):
         """
-        When AddModels button is clicked.
+        When Add Model button is clicked.
         """
-        mostRecentImageFile = preferences.get("DataSelection", "recent models")
-        mostRecentImageFile = str(mostRecentImageFile)
-        if mostRecentImageFile is not None:
-            defaultDirectory = os.path.split(mostRecentImageFile)[0]
+        mostRecentModelFile = preferences.get("DataSelection", "recent neural net")
+        if mostRecentModelFile is not None:
+            defaultDirectory = os.path.split(mostRecentModelFile)[0]
         else:
             defaultDirectory = os.path.expanduser("~")
 
-        fileNames = self.getImageFileNamesToOpen(self, defaultDirectory)
+        fileName = self.getModelFileNameToOpen(self, defaultDirectory)
 
-        if len(fileNames) > 0:
-            self.add_DL_classifiers(fileNames)
+        if fileName is not None:
+            self.add_DL_classifier(fileName)
+            preferences.set("DataSelection", "recent neural net", fileName)
 
-    def getImageFileNamesToOpen(cls, parent_window, defaultDirectory):
+    def getModelFileNameToOpen(cls, parent_window, defaultDirectory):
         """
         opens a QFileDialog for importing files
         """
@@ -472,7 +469,7 @@ class DLClassGui(LayerViewerGui):
         filters = ["{filt} ({filt})".format(filt=x) for x in filter_strs]
         filt_all_str = "Neural nets (" + " ".join(filter_strs) + ")"
 
-        fileNames = []
+        fileName = None
 
         if ilastik_config.getboolean("ilastik", "debug"):
             # use Qt dialog in debug mode (more portable?)
@@ -482,14 +479,13 @@ class DLClassGui(LayerViewerGui):
             # the line for "Image files" is too long otherwise
             file_dialog.setNameFilters([filt_all_str] + filters)
             # file_dialog.setNameFilterDetailsVisible(False)
-            # select multiple files
-            file_dialog.setFileMode(QFileDialog.ExistingFiles)
+            file_dialog.setFileMode(QFileDialog.ExistingFile)
             file_dialog.setDirectory(defaultDirectory)
 
             if file_dialog.exec_():
-                fileNames = file_dialog.selectedFiles()
+                fileName = file_dialog.selectedFiles()[0]
         else:
             # otherwise, use native dialog of the present platform
-            fileNames, _ = QFileDialog.getOpenFileNames(parent_window, "Select Model", defaultDirectory, filt_all_str)
+            fileName, _ = QFileDialog.getOpenFileName(parent_window, "Select Model", defaultDirectory, filt_all_str)
 
-        return fileNames
+        return fileName
