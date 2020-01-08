@@ -9,13 +9,9 @@ from functools import partial
 from collections import OrderedDict
 
 import numpy
-
-# import torch
 import sys
-sys.path.append(r'E:\git\bits\bioimaging\deep_segment\neuralnets')  # FIXME FRANK - can we avoid this?
-print(f'sys.path={sys.path}')
-from neuralnets.util.tools import load_net
 
+from neuralnets.util.tools import load_net
 
 from volumina.api import createDataSource, AlphaModulatedLayer
 from volumina.utility import preferences

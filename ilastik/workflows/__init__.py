@@ -29,9 +29,17 @@ WORKFLOW_CLASSES = []
 import ilastik.config
 
 # VIB classifier using deep learning
-from .dlClassification import DLClassificationWorkflow
+can_dl = True
+try:
+    import neuralnets
+except ImportError as e:
+    can_dl = False
+    logger.warning("Cannot load the VIB Deep Learning workflow because the 'neuralnets' library is missing. Either install it via pip or add its location to PYTHONPATH.")
 
-WORKFLOW_CLASSES += [DLClassificationWorkflow]
+if can_dl:
+    from .dlClassification import DLClassificationWorkflow
+
+    WORKFLOW_CLASSES += [DLClassificationWorkflow]
 
 from .pixelClassification import PixelClassificationWorkflow
 
