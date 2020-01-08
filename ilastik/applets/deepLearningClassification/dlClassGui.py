@@ -9,11 +9,9 @@ from functools import partial
 from collections import OrderedDict
 
 import numpy
-
-# import torch
 import sys
-from neuralnets.util.tools import load_net
 
+from neuralnets.util.tools import load_net
 
 from volumina.api import createDataSource, AlphaModulatedLayer
 from volumina.utility import preferences
