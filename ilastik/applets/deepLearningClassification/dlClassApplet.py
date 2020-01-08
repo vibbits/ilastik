@@ -16,7 +16,7 @@ class DLClassApplet(StandardApplet):
 
     def __init__(self, workflow, projectFileGroupName):
 
-        super(DLClassApplet, self).__init__("VIB DL Classification", workflow=workflow)
+        super(DLClassApplet, self).__init__("VIB Deep Learning Classification", workflow=workflow)
 
         self._serializableItems = [
             DLClassificationSerializer(self.topLevelOperator, projectFileGroupName)
