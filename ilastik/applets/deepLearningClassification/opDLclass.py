@@ -36,7 +36,7 @@ class OpDLClassification(Operator):
     ModelPath = InputSlot()  # Path
     FullModel = InputSlot(value=[])  # When full model serialization is enabled
     Halo_Size = InputSlot(value=0)  # VIB FRANK: was 32
-    Batch_Size = InputSlot(value=1)  # VIB FRANK: was 3
+    Batch_Size = InputSlot(value=3)  # VIB FRANK: was 3
     SaveFullModel = InputSlot(stype="bool", value=False, nonlane=True)
 
     def __init__(self, *args, **kwargs):

@@ -12,8 +12,6 @@ import numpy
 
 # import torch
 import sys
-sys.path.append(r'E:\git\bits\bioimaging\deep_segment\neuralnets')  # FIXME FRANK - can we avoid this?
-print(f'sys.path={sys.path}')
 from neuralnets.util.tools import load_net
 
 
@@ -62,9 +60,11 @@ class ParameterDlg(QDialog):
         buttonbox.rejected.connect(self.reject)
 
         self.halo_edit = QLineEdit(self)
-        self.halo_edit.setPlaceholderText("HaloSize")
+        self.halo_edit.setPlaceholderText("Halo Size")
+        self.halo_edit.setText(str(topLevelOperator.Halo_Size.value))
         self.batch_edit = QLineEdit(self)
         self.batch_edit.setPlaceholderText("Batch Size")
+        self.batch_edit.setText(str(topLevelOperator.Batch_Size.value))
 
         layout = QVBoxLayout()
         layout.addWidget(self.halo_edit)
@@ -76,11 +76,17 @@ class ParameterDlg(QDialog):
 
     def add_Parameters(self):
         """
-        changning Halo Size and Batch Size Slot Values
+        changing Halo Size and Batch Size Slot Values
         """
+        try:
+            halo_size = int(self.halo_edit.text())
+        except ValueError:
+            halo_size = 0
 
-        halo_size = int(self.halo_edit.text())
-        batch_size = int(self.batch_edit.text())
+        try:
+            batch_size = int(self.batch_edit.text())
+        except ValueError:
+            batch_size = 1
 
         self.topLevelOperator.Halo_Size.setValue(halo_size)
         self.topLevelOperator.Batch_Size.setValue(batch_size)
@@ -163,10 +169,8 @@ class DLClassGui(LayerViewerGui):
             dlg = ParameterDlg(self.topLevelOperator, parent=self)
             dlg.exec_()
 
-            # classifier_key = self.drawer.comboBox.currentText()
             self.halo_size = self.topLevelOperator.Halo_Size.value
             self.batch_size = self.topLevelOperator.Batch_Size.value
-            print(self.halo_size)
 
         set_parameter = advanced_menu.addAction("Parameters...")
         set_parameter.triggered.connect(settingParameter)
@@ -371,29 +375,14 @@ class DLClassGui(LayerViewerGui):
 
                 self.topLevelOperator.FreezePredictions.setValue(False)
 
-                print(self.halo_size)
-
                 model = DeepLearningLazyflowClassifier(model_object, model_path, self.halo_size, self.batch_size)
 
                 # # # #
 
-                # input_shape: shape of valid network input, must be either CHW (2D) or CDHW (3D)
-
-                # expected_input_shape = model._tiktorch_net.expected_input_shape
-                # input_shape = numpy.array(expected_input_shape)
-                #
-                # if len(model._tiktorch_net.get("window_size")) == 2:
-                #
-                #     input_shape = numpy.append(input_shape, None)
-                # else:
-                #
-                #     input_shape = input_shape[1:]
-                #     input_shape = numpy.append(input_shape, None)
-
-                expected_input_shape = (1, 256, 256)   # FIXME FRANK: can we get this from the neural net model? (1, 1024, 1024) or (1, 512, 512) gives empty results on MiRA_subset.tif
+                expected_input_shape = (self.batch_size, 256, 256)  # this will be the size of the image patches that ilastik will feed to the classifier for prediction (except for patches at the image boundary, those can be smaller if the image is not an entire multiple of the patch size)
                 input_shape = numpy.array(expected_input_shape)
                 input_shape = numpy.append(input_shape, None)
-                logger.debug(f"dlClassGui: input_shape={input_shape}")
+                logger.debug(f"dlClassGui: input_shape={input_shape} batch_size={self.batch_size}")
 
                 # # # #
 
