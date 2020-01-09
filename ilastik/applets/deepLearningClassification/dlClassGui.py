@@ -34,9 +34,7 @@ from PyQt5.QtWidgets import (
 from ilastik.applets.layerViewer.layerViewerGui import LayerViewerGui
 from ilastik.config import cfg as ilastik_config
 
-# from lazyflow.classifiers import TikTorchLazyflowClassifier
 from lazyflow.classifiers import DeepLearningLazyflowClassifier
-
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -57,37 +55,46 @@ class ParameterDlg(QDialog):
         buttonbox.accepted.connect(self.add_Parameters)
         buttonbox.rejected.connect(self.reject)
 
-        self.halo_edit = QLineEdit(self)
-        self.halo_edit.setPlaceholderText("Halo Size")
-        self.halo_edit.setText(str(topLevelOperator.Halo_Size.value))
+        self.tile_edit = QLineEdit(self)
+        self.tile_edit.setPlaceholderText("Tile Size")
+        self.tile_edit.setText(str(topLevelOperator.Tile_Size.value))
+
         self.batch_edit = QLineEdit(self)
         self.batch_edit.setPlaceholderText("Batch Size")
         self.batch_edit.setText(str(topLevelOperator.Batch_Size.value))
 
+        self.halo_edit = QLineEdit(self)
+        self.halo_edit.setPlaceholderText("Halo Size")
+        self.halo_edit.setText(str(topLevelOperator.Halo_Size.value))
+
         layout = QVBoxLayout()
-        layout.addWidget(self.halo_edit)
+        layout.addWidget(self.tile_edit)
         layout.addWidget(self.batch_edit)
+        layout.addWidget(self.halo_edit)
         layout.addWidget(buttonbox)
 
         self.setLayout(layout)
         self.setWindowTitle("Set Parameters")
 
     def add_Parameters(self):
-        """
-        changing Halo Size and Batch Size Slot Values
-        """
         try:
-            halo_size = int(self.halo_edit.text())
+            tile_size = int(self.tile_edit.text())
         except ValueError:
-            halo_size = 0
+            tile_size = 1
 
         try:
             batch_size = int(self.batch_edit.text())
         except ValueError:
             batch_size = 1
 
-        self.topLevelOperator.Halo_Size.setValue(halo_size)
+        try:
+            halo_size = int(self.halo_edit.text())
+        except ValueError:
+            halo_size = 0
+
+        self.topLevelOperator.Tile_Size.setValue(tile_size)
         self.topLevelOperator.Batch_Size.setValue(batch_size)
+        self.topLevelOperator.Halo_Size.setValue(halo_size)
 
         # close dialog
         super(ParameterDlg, self).accept()
@@ -169,6 +176,7 @@ class DLClassGui(LayerViewerGui):
 
             self.halo_size = self.topLevelOperator.Halo_Size.value
             self.batch_size = self.topLevelOperator.Batch_Size.value
+            self.tile_size = self.topLevelOperator.Tile_Size.value
 
         set_parameter = advanced_menu.addAction("Parameters...")
         set_parameter.triggered.connect(settingParameter)
@@ -219,6 +227,7 @@ class DLClassGui(LayerViewerGui):
 
         self.batch_size = self.topLevelOperator.Batch_Size.value
         self.halo_size = self.topLevelOperator.Halo_Size.value
+        self.tile_size = self.topLevelOperator.Tile_Size.value
 
     def _initAppletDrawerUic(self, drawerPath=None):
         """
@@ -373,21 +382,16 @@ class DLClassGui(LayerViewerGui):
 
                 self.topLevelOperator.FreezePredictions.setValue(False)
 
+                # Create neural network classifier object
                 model = DeepLearningLazyflowClassifier(model_object, model_path, self.halo_size, self.batch_size)
 
-                # # # #
+                block_size = (1, 8192, 8192)  # (self.batch_size, self.tile_size, self.tile_size)  # this will be the size of the image tile that ilastik will feed to the classifier for prediction (except for tiles at the image boundary, those can be smaller if the image is not an entire multiple of the tile size)
+                block_shape = numpy.array(block_size)
+                block_shape = numpy.append(block_shape, None)
+                block_shape[1:3] -= 2 * self.halo_size
+                logger.debug(f"dlClassGui: block size={block_size}; block_shape including halo={block_shape}")
 
-                expected_input_shape = (self.batch_size, 256, 256)  # this will be the size of the image patches that ilastik will feed to the classifier for prediction (except for patches at the image boundary, those can be smaller if the image is not an entire multiple of the patch size)
-                input_shape = numpy.array(expected_input_shape)
-                input_shape = numpy.append(input_shape, None)
-                logger.debug(f"dlClassGui: input_shape={input_shape} batch_size={self.batch_size}")
-
-                # # # #
-
-                input_shape[1:3] -= 2 * self.halo_size
-                logger.debug(f"dlClassGui: input_shape including halo={input_shape}")
-
-                self.topLevelOperator.BlockShape.setValue(input_shape)
+                self.topLevelOperator.BlockShape.setValue(block_shape)
                 logger.debug(f"dlClassGui: _net.out_channels={model._net.out_channels}")
                 self.topLevelOperator.NumClasses.setValue(model._net.out_channels)
 
