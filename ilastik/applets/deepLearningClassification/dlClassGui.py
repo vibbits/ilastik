@@ -55,22 +55,22 @@ class ParameterDlg(QDialog):
         buttonbox.accepted.connect(self.add_Parameters)
         buttonbox.rejected.connect(self.reject)
 
-        self.tile_edit = QLineEdit(self)
-        self.tile_edit.setPlaceholderText("Tile Size")
-        self.tile_edit.setText(str(topLevelOperator.Tile_Size.value))
+        self.block_edit = QLineEdit(self)
+        self.block_edit.setPlaceholderText("Block Size")  # Max size of image block (width and height) sent to the classifier for prediction. This will be a large value (perhaps larger than expected image sizes) because we want the neural network code, not Ilastik to split it into smaller blocks.
+        self.block_edit.setText(str(topLevelOperator.Block_Size.value))
 
         self.batch_edit = QLineEdit(self)
         self.batch_edit.setPlaceholderText("Batch Size")
-        self.batch_edit.setText(str(topLevelOperator.Batch_Size.value))
+        self.batch_edit.setText(str(topLevelOperator.Batch_Size.value))  # Batch size for the neural network based classifier
 
-        self.halo_edit = QLineEdit(self)
-        self.halo_edit.setPlaceholderText("Halo Size")
-        self.halo_edit.setText(str(topLevelOperator.Halo_Size.value))
+        self.window_edit = QLineEdit(self)
+        self.window_edit.setPlaceholderText("Window Size")
+        self.window_edit.setText(str(topLevelOperator.Window_Size.value))  # The window size used by the neural network code to split a larger image into smaller (and overlapping) blocks. Each block will be passed through the neural network, and the overlapping parts of their predictions will be averaged.
 
         layout = QVBoxLayout()
-        layout.addWidget(self.tile_edit)
+        layout.addWidget(self.block_edit)
         layout.addWidget(self.batch_edit)
-        layout.addWidget(self.halo_edit)
+        layout.addWidget(self.window_edit)
         layout.addWidget(buttonbox)
 
         self.setLayout(layout)
@@ -78,9 +78,9 @@ class ParameterDlg(QDialog):
 
     def add_Parameters(self):
         try:
-            tile_size = int(self.tile_edit.text())
+            block_size = int(self.block_edit.text())
         except ValueError:
-            tile_size = 1
+            block_size = 16 * 1024
 
         try:
             batch_size = int(self.batch_edit.text())
@@ -88,13 +88,13 @@ class ParameterDlg(QDialog):
             batch_size = 1
 
         try:
-            halo_size = int(self.halo_edit.text())
+            window_size = int(self.window_edit.text())
         except ValueError:
-            halo_size = 0
+            window_size = 256
 
-        self.topLevelOperator.Tile_Size.setValue(tile_size)
+        self.topLevelOperator.Block_Size.setValue(block_size)
         self.topLevelOperator.Batch_Size.setValue(batch_size)
-        self.topLevelOperator.Halo_Size.setValue(halo_size)
+        self.topLevelOperator.Window_Size.setValue(window_size)
 
         # close dialog
         super(ParameterDlg, self).accept()
@@ -174,9 +174,9 @@ class DLClassGui(LayerViewerGui):
             dlg = ParameterDlg(self.topLevelOperator, parent=self)
             dlg.exec_()
 
-            self.halo_size = self.topLevelOperator.Halo_Size.value
+            self.block_size = self.topLevelOperator.Block_Size.value
             self.batch_size = self.topLevelOperator.Batch_Size.value
-            self.tile_size = self.topLevelOperator.Tile_Size.value
+            self.window_size = self.topLevelOperator.Window_Size.value
 
         set_parameter = advanced_menu.addAction("Parameters...")
         set_parameter.triggered.connect(settingParameter)
@@ -226,8 +226,8 @@ class DLClassGui(LayerViewerGui):
         self.initViewerControlUi()
 
         self.batch_size = self.topLevelOperator.Batch_Size.value
-        self.halo_size = self.topLevelOperator.Halo_Size.value
-        self.tile_size = self.topLevelOperator.Tile_Size.value
+        self.block_size = self.topLevelOperator.Block_Size.value
+        self.window_size = self.topLevelOperator.Window_Size.value
 
     def _initAppletDrawerUic(self, drawerPath=None):
         """
@@ -383,13 +383,12 @@ class DLClassGui(LayerViewerGui):
                 self.topLevelOperator.FreezePredictions.setValue(False)
 
                 # Create neural network classifier object
-                model = DeepLearningLazyflowClassifier(model_object, model_path, self.halo_size, self.batch_size)
+                # we do not want halo's. the neuralnet does its own overlapping and averaging, so we want to send a full image to the neural net - so we pick a very large block size here; so large that the full image fits in it and ilastik only does blocking on the z-planes, but not in x and y
+                model = DeepLearningLazyflowClassifier(model_object, model_path, self.batch_size, self.window_size)
 
-                block_size = (1, 8192, 8192)  # (self.batch_size, self.tile_size, self.tile_size)  # this will be the size of the image tile that ilastik will feed to the classifier for prediction (except for tiles at the image boundary, those can be smaller if the image is not an entire multiple of the tile size)
-                block_shape = numpy.array(block_size)
-                block_shape = numpy.append(block_shape, None)
-                block_shape[1:3] -= 2 * self.halo_size
-                logger.debug(f"dlClassGui: block size={block_size}; block_shape including halo={block_shape}")
+                block_shape = numpy.array([self.batch_size, self.block_size, self.block_size, None])  # (batch size, height, width, ???)   CHECKME: what is the None for?
+                # block_shape is the size of the images that ilastik will feed to the classifier for prediction
+                logger.debug(f"dlClassGui: block_shape={block_shape}")
 
                 self.topLevelOperator.BlockShape.setValue(block_shape)
                 logger.debug(f"dlClassGui: _net.out_channels={model._net.out_channels}")

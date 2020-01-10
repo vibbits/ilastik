@@ -35,9 +35,9 @@ class OpDLClassification(Operator):
     # Gui only (not part of the pipeline)
     ModelPath = InputSlot()  # Path
     FullModel = InputSlot(value=[])  # When full model serialization is enabled
-    Halo_Size = InputSlot(value=0)
-    Batch_Size = InputSlot(value=3)
-    Tile_Size = InputSlot(value=256)
+    Batch_Size = InputSlot(value=1)
+    Block_Size = InputSlot(value=16 * 1024)
+    Window_Size = InputSlot(value=256)  # the neural net will break up large images (of size up to Block_size) into smaller overlapping windows of size Window_Size
     SaveFullModel = InputSlot(stype="bool", value=False, nonlane=True)
 
     def __init__(self, *args, **kwargs):
