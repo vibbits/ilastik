@@ -29,6 +29,7 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
     QDialog,
     QCheckBox,
+    QLabel,
 )
 
 from ilastik.applets.layerViewer.layerViewerGui import LayerViewerGui
@@ -56,20 +57,38 @@ class ParameterDlg(QDialog):
         buttonbox.rejected.connect(self.reject)
 
         self.block_edit = QLineEdit(self)
-        self.block_edit.setPlaceholderText("Block Size")  # Max size of image block (width and height) sent to the classifier for prediction. This will be a large value (perhaps larger than expected image sizes) because we want the neural network code, not Ilastik to split it into smaller blocks.
         self.block_edit.setText(str(topLevelOperator.Block_Size.value))
-
         self.batch_edit = QLineEdit(self)
-        self.batch_edit.setPlaceholderText("Batch Size")
-        self.batch_edit.setText(str(topLevelOperator.Batch_Size.value))  # Batch size for the neural network based classifier
-
+        self.batch_edit.setText(str(topLevelOperator.Batch_Size.value))
         self.window_edit = QLineEdit(self)
-        self.window_edit.setPlaceholderText("Window Size")
-        self.window_edit.setText(str(topLevelOperator.Window_Size.value))  # The window size used by the neural network code to split a larger image into smaller (and overlapping) blocks. Each block will be passed through the neural network, and the overlapping parts of their predictions will be averaged.
+        self.window_edit.setText(str(topLevelOperator.Window_Size.value))
+
+        block_label = QLabel("Block size [pixels]:", self)
+        block_label.setToolTip("Max size of image blocks sent by Ilastik to the classifier.")
+        # Max size of image block (width and height) sent to the classifier for prediction. This will be a large value
+        # (typically larger than expected image sizes) because we want the neural network code, not Ilastik to split it into smaller blocks.
+        # The only advantage of chosing a smaller block size is that predictions are returned sooner to Ilastik, so it
+        # can show prediction progress more frequently. Note that the will be edge artefacts along the edges of these blocks,
+        # and that these artefacts are not smoothened at all, since those blocks are not averaged. (Because splitting in
+        # blocks happens in Ilastik, and averaging predictions happens in the neuralnets library itself.)
+
+        batch_label = QLabel("Batch size [slices]:", self)
+        batch_label.setToolTip("Batch size for the neural network")
+
+        window_label = QLabel("Window size [pixels]:", self)
+        window_label.setToolTip("Window size used by neural network when splitting an image into smaller, overlapping blocks.")
+        # The 'window size' is used by the neural network code to split a larger image into smaller (and overlapping) blocks.
+        # Each block will be passed through the neural network. The predictions along the window edges are not so accurate however, so
+        # the overlapping parts of the predictions are averaged to smoothen artefacts along the window edges somewhat.
+        # On systems with enough GPU memory this should be set to a large value (e.g. 768 pixels) for most accurate results.
+        # If less GPU memory is present, a smaller window size will need to be picked.
 
         layout = QVBoxLayout()
+        layout.addWidget(block_label)
         layout.addWidget(self.block_edit)
+        layout.addWidget(batch_label)
         layout.addWidget(self.batch_edit)
+        layout.addWidget(window_label)
         layout.addWidget(self.window_edit)
         layout.addWidget(buttonbox)
 
@@ -388,10 +407,9 @@ class DLClassGui(LayerViewerGui):
 
                 block_shape = numpy.array([self.batch_size, self.block_size, self.block_size, None])  # (batch size, height, width, ???)   CHECKME: what is the None for?
                 # block_shape is the size of the images that ilastik will feed to the classifier for prediction
-                logger.debug(f"dlClassGui: block_shape={block_shape}")
+                logger.debug(f"Using block_shape {block_shape}")
 
                 self.topLevelOperator.BlockShape.setValue(block_shape)
-                logger.debug(f"dlClassGui: _net.out_channels={model._net.out_channels}")
                 self.topLevelOperator.NumClasses.setValue(model._net.out_channels)
 
                 self.topLevelOperator.Classifier.setValue(model)
