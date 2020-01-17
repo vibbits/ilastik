@@ -291,8 +291,12 @@ class DLClassGui(LayerViewerGui):
         self._viewerControlUi.checkShowPredictions.nextCheckState = partial(
             nextCheckState, self._viewerControlUi.checkShowPredictions
         )
+        self._viewerControlUi.checkShowSegmentation.nextCheckState = partial(
+            nextCheckState, self._viewerControlUi.checkShowSegmentation
+        )
 
         self._viewerControlUi.checkShowPredictions.clicked.connect(self.handleShowPredictionsClicked)
+        self._viewerControlUi.checkShowSegmentation.clicked.connect(self.handleShowSegmentationClicked)
 
         model = self.editor.layerStack
         self._viewerControlUi.viewerControls.setupConnections(model)
@@ -303,12 +307,39 @@ class DLClassGui(LayerViewerGui):
         Triggers the prediction by setting the layer on visible
         """
 
+        # IMPROVEME: add ability to change the label names and their color
+
         inputSlot = self.topLevelOperator.InputImage
 
         layers = []
 
         tintColors = [QColor(0, 0, 255), QColor(255, 0, 0)]  # a couple of predefined class label colors
 
+        # Add the segmentations
+        for channel, segmentationSlot in enumerate(self.topLevelOperatorView.SegmentationChannels):
+            if segmentationSlot.ready():
+                segsrc = createDataSource(segmentationSlot)
+                segLayer = AlphaModulatedLayer(
+                    segsrc, tintColor=tintColors[channel % len(tintColors)], range=(0.0, 1.0), normalize=(0.0, 1.0)
+                )
+
+                segLayer.opacity = 1
+                segLayer.visible = False
+                segLayer.visibleChanged.connect(self.updateShowSegmentationCheckbox)
+
+                def setSegLayerName(n, segLayer_=segLayer, initializing=False):
+                    if not initializing and segLayer_ not in self.layerstack:
+                        # This layer has been removed from the layerstack already.
+                        # Don't touch it.
+                        return
+                    newName = "Segmentation of %s" % n
+                    segLayer_.name = newName
+
+                setSegLayerName(channel, initializing=True)
+
+                layers.append(segLayer)
+
+        # Add the prediction probabilities
         for channel, predictionSlot in enumerate(self.topLevelOperator.PredictionProbabilityChannels):
             if predictionSlot.ready():
                 predictsrc = createDataSource(predictionSlot)
@@ -326,14 +357,14 @@ class DLClassGui(LayerViewerGui):
                         # This layer has been removed from the layerstack already.
                         # Don't touch it.
                         return
-                    newName = "Prediction for %s" % n
+                    newName = "Probability of %s" % n
                     predictLayer_.name = newName
 
                 setPredLayerName(channel, initializing=True)
 
                 layers.append(predictionLayer)
 
-        # always as last layer
+        # The raw input data, always as last layer
         if inputSlot.ready():
             rawLayer = self.createStandardLayerFromSlot(inputSlot)
             rawLayer.visible = True
@@ -425,22 +456,29 @@ class DLClassGui(LayerViewerGui):
     @pyqtSlot()
     def handleShowPredictionsClicked(self):
         """
-        sets the layer visibility when showPredicition is clicked
+        sets the layer visibility when showPrediction is clicked
         """
         checked = self._viewerControlUi.checkShowPredictions.isChecked()
         for layer in self.layerstack:
-            if "Prediction" in layer.name:
+            if "Probability" in layer.name:
+                layer.visible = checked
+
+    @pyqtSlot()
+    def handleShowSegmentationClicked(self):
+        checked = self._viewerControlUi.checkShowSegmentation.isChecked()
+        for layer in self.layerstack:
+            if "Segmentation" in layer.name:
                 layer.visible = checked
 
     @pyqtSlot()
     def updateShowPredictionCheckbox(self):
         """
-        updates the showPrediction Checkbox when Predictions were added to the layers
+        updates the "Probability" checkbox, when predictions were added to the layers
         """
         predictLayerCount = 0
         visibleCount = 0
         for layer in self.layerstack:
-            if "Prediction" in layer.name:
+            if "Probability" in layer.name:
                 predictLayerCount += 1
                 if layer.visible:
                     visibleCount += 1
@@ -451,6 +489,26 @@ class DLClassGui(LayerViewerGui):
             self._viewerControlUi.checkShowPredictions.setCheckState(Qt.Checked)
         else:
             self._viewerControlUi.checkShowPredictions.setCheckState(Qt.PartiallyChecked)
+
+    @pyqtSlot()
+    def updateShowSegmentationCheckbox(self):
+        """
+        updates the "Segmentation" checkbox, when segmentations were added to the layers
+        """
+        segLayerCount = 0
+        visibleCount = 0
+        for layer in self.layerstack:
+            if "Segmentation" in layer.name:
+                segLayerCount += 1
+                if layer.visible:
+                    visibleCount += 1
+
+        if visibleCount == 0:
+            self._viewerControlUi.checkShowSegmentation.setCheckState(Qt.Unchecked)
+        elif segLayerCount == visibleCount:
+            self._viewerControlUi.checkShowSegmentation.setCheckState(Qt.Checked)
+        else:
+            self._viewerControlUi.checkShowSegmentation.setCheckState(Qt.PartiallyChecked)
 
     def addModel(self):
         """

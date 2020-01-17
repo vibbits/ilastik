@@ -8,7 +8,8 @@ from __future__ import print_function
 from lazyflow.graph import Operator, InputSlot, OutputSlot
 from lazyflow.operators.opBlockedArrayCache import OpBlockedArrayCache
 from lazyflow.operators.classifierOperators import OpPixelwiseClassifierPredict
-from lazyflow.operators import OpMultiArraySlicer2
+from lazyflow.operators import OpMultiArraySlicer2, OpMaxChannelIndicatorOperator
+
 from ilastik.utility.operatorSubView import OperatorSubView
 
 
@@ -31,6 +32,7 @@ class OpDLClassification(Operator):
     PredictionProbabilities = OutputSlot()
     CachedPredictionProbabilities = OutputSlot()
     PredictionProbabilityChannels = OutputSlot(level=1)
+    SegmentationChannels = OutputSlot(level=1)
 
     # Gui only (not part of the pipeline)
     ModelPath = InputSlot()  # Path
@@ -63,6 +65,15 @@ class OpDLClassification(Operator):
         self.opPredictionSlicer.Input.connect(self.prediction_cache.Output)
         self.opPredictionSlicer.AxisFlag.setValue("c")
         self.PredictionProbabilityChannels.connect(self.opPredictionSlicer.Slices)
+
+        self.opSegmentor = OpMaxChannelIndicatorOperator(parent=self)
+        self.opSegmentor.Input.connect(self.prediction_cache.Output)
+
+        self.opSegmentationSlicer = OpMultiArraySlicer2(parent=self)
+        self.opSegmentationSlicer.name = "opSegmentationSlicer"
+        self.opSegmentationSlicer.Input.connect(self.opSegmentor.Output)
+        self.opSegmentationSlicer.AxisFlag.setValue("c")
+        self.SegmentationChannels.connect(self.opSegmentationSlicer.Slices)
 
     def propagateDirty(self, slot, subindex, roi):
         """
