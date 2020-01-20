@@ -78,7 +78,9 @@ class DLClassificationWorkflow(Workflow):
 
         self.dlClassificationApplet = DLClassApplet(self, "DLClassApplet")
 
-        self.dataExportApplet = DLClassificationDataExportApplet(self, "Data Export")
+        self.dataExportApplet = DLClassificationDataExportApplet(self, "Export Predictions")
+        self.dataExportApplet.prepare_for_entire_export = self.prepare_for_entire_export
+        self.dataExportApplet.post_process_entire_export = self.post_process_entire_export
 
         # Configure global DataExport settings
         opDataExport = self.dataExportApplet.topLevelOperator
@@ -124,17 +126,17 @@ class DLClassificationWorkflow(Workflow):
         opDLclassify = self.dlClassificationApplet.topLevelOperator.getLane(laneIndex)
         opDataExport = self.dataExportApplet.topLevelOperator.getLane(laneIndex)
 
-        # Input Image -> Feature Op
-        #         and -> Classification Op (for display)
+        # Input Image -> Classification Op
         opDLclassify.InputImage.connect(opData.Image)
+        # opClassify.PredictionMasks.connect(opData.ImageGroup[self.Roles.PREDICTION_MASK])   # Needed??
 
         # Data Export connections
         opDataExport.RawData.connect(opData.ImageGroup[self.DATA_ROLE_RAW])
         opDataExport.RawDatasetInfo.connect(opData.DatasetGroup[self.DATA_ROLE_RAW])
         opDataExport.Inputs.resize(len(self.EXPORT_NAMES))
         opDataExport.Inputs[0].connect(opDLclassify.CachedPredictionProbabilities)
-        # for slot in opDataExport.Inputs:
-        #     assert slot.upstream_slot is not None
+        for slot in opDataExport.Inputs:
+            assert slot.upstream_slot is not None
 
     def handleAppletStateUpdateRequested(self):
         """
@@ -160,6 +162,8 @@ class DLClassificationWorkflow(Workflow):
         # The user isn't allowed to touch anything while batch processing is running.
         batch_processing_busy = self.batchProcessingApplet.busy
 
+        logger.info(f"predictions_ready={predictions_ready} input_ready={input_ready} batch_processing_busy={batch_processing_busy} live_update_active={live_update_active}")
+
         self._shell.setAppletEnabled(self.dataSelectionApplet, not batch_processing_busy)
         self._shell.setAppletEnabled(self.dlClassificationApplet, input_ready and not batch_processing_busy)
         self._shell.setAppletEnabled(
@@ -170,10 +174,28 @@ class DLClassificationWorkflow(Workflow):
             self._shell.setAppletEnabled(self.batchProcessingApplet, predictions_ready and not batch_processing_busy)
 
         # Lastly, check for certain "busy" conditions, during which we
-        #  should prevent the shell from closing the project.
+        # should prevent the shell from closing the project.
         busy = False
         busy |= self.dataSelectionApplet.busy
         busy |= self.dlClassificationApplet.busy
         busy |= self.dataExportApplet.busy
         busy |= self.batchProcessingApplet.busy
         self._shell.enableProjectChanges(not busy)
+
+    def prepare_for_entire_export(self):
+        """
+        Assigned to DataExportApplet.prepare_for_entire_export
+        (See above.)
+        """
+        # Unfreeze the classifier caches (ensure that we're exporting based on up-to-date labels)
+        # CHECKME: Is this really needed? If so, explain in more detail why.
+        # CHECKME: Is this really needed? If so, explain in more detail why.
+        self.freeze_status = self.dlClassificationApplet.topLevelOperator.FreezePredictions.value
+        self.dlClassificationApplet.topLevelOperator.FreezePredictions.setValue(False)
+
+    def post_process_entire_export(self):
+        """
+        Assigned to DataExportApplet.post_process_entire_export
+        (See above.)
+        """
+        self.dlClassificationApplet.topLevelOperator.FreezePredictions.setValue(self.freeze_status)
