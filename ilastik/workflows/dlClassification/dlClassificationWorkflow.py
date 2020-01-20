@@ -27,7 +27,7 @@ class DLClassificationWorkflow(Workflow):
 
     DATA_ROLE_RAW = 0
     ROLE_NAMES = ["Raw Data"]
-    EXPORT_NAMES = ["Probabilities"]
+    EXPORT_NAMES = ["Probabilities"]  # CHECKME: should we add segmentations too?
 
     @property
     def applets(self):
@@ -188,7 +188,6 @@ class DLClassificationWorkflow(Workflow):
         (See above.)
         """
         # Unfreeze the classifier caches (ensure that we're exporting based on up-to-date labels)
-        # CHECKME: Is this really needed? If so, explain in more detail why.
         # CHECKME: Is this really needed? If so, explain in more detail why.
         self.freeze_status = self.dlClassificationApplet.topLevelOperator.FreezePredictions.value
         self.dlClassificationApplet.topLevelOperator.FreezePredictions.setValue(False)

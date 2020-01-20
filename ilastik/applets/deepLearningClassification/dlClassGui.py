@@ -254,7 +254,7 @@ class DLClassGui(LayerViewerGui):
         """
         if drawerPath is None:
             localDir = os.path.split(__file__)[0]
-            drawerPath = os.path.join(localDir, "dlClassAppletUiTest.ui")
+            drawerPath = os.path.join(localDir, "dlClassificationDrawer.ui")
         self.drawer = uic.loadUi(drawerPath)
 
         self.drawer.comboBox.clear()
@@ -277,7 +277,8 @@ class DLClassGui(LayerViewerGui):
     def initViewerControlUi(self):
         """
         Load the viewer controls GUI, which appears below the applet bar.
-        In our case, the viewer control GUI consists mainly of a layer list.
+        In our case, the viewer control GUI consists of the "Group Visibility" toggles "Probability" and "Segmentation"
+        with the list over layers underneath.
         """
         localDir = os.path.split(__file__)[0]
         self._viewerControlUi = uic.loadUi(os.path.join(localDir, "viewerControls.ui"))
