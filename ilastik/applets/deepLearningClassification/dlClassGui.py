@@ -13,6 +13,7 @@ import sys
 
 from neuralnets.util.tools import load_net
 
+from volumina import colortables
 from volumina.api import createDataSource, AlphaModulatedLayer
 from volumina.utility import preferences
 
@@ -20,6 +21,7 @@ from PyQt5 import uic
 from PyQt5.QtGui import QColor
 from PyQt5.QtCore import Qt, pyqtSlot
 from PyQt5.QtWidgets import (
+    QApplication,
     QStackedWidget,
     QMessageBox,
     QFileDialog,
@@ -32,7 +34,10 @@ from PyQt5.QtWidgets import (
     QLabel,
 )
 
+
 from ilastik.applets.layerViewer.layerViewerGui import LayerViewerGui
+from ilastik.widgets.labelListView import Label
+from ilastik.widgets.labelListModel import LabelListModel
 from ilastik.config import cfg as ilastik_config
 
 from lazyflow.classifiers import DeepLearningLazyflowClassifier
@@ -188,7 +193,7 @@ class DLClassGui(LayerViewerGui):
 
         def settingParameter():
             """
-            changing BatchSize and HaloSize
+            changing BatchSize, HaloSize and WindowSize parameters
             """
             dlg = ParameterDlg(self.topLevelOperator, parent=self)
             dlg.exec_()
@@ -268,6 +273,45 @@ class DLClassGui(LayerViewerGui):
 
             self.classifiers = self.topLevelOperator.ModelPath.value
 
+        # Model for our list of classification labels (=classes)
+        model = LabelListModel()
+        self.drawer.labelListView.setModel(model)
+        self.drawer.labelListModel = model
+
+        # Add fixed labels for two classes. Currently our neural networks discriminate between two classes only.
+        self._addNewLabel("Background", self._colorForLabel(1), None, makePermanent=True)
+        self._addNewLabel("Foreground", self._colorForLabel(2), None, makePermanent=True)
+
+    def _colorForLabel(self, n):
+        # Note: entry 0 in the colortable is transparent
+        color = QColor()
+        color.setRgba(colortables.default16_new[n])
+        return color
+
+    def _addNewLabel(self, labelName, labelColor, pmapColor, makePermanent=True):
+        """
+        Add a new label to the label list GUI control.
+        (Note: In the GUI, the color patch to the left of a label consists of two halves whose colors can be changed
+        independently. The top left half is the color used for painting labels interactively; the bottom right half
+        for drawing in the segmentation and probability layers.)
+        """
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+
+        label = Label(labelName, labelColor, pmapColor=pmapColor)
+
+        # Insert new label
+        newRow = self.drawer.labelListModel.rowCount()
+        self.drawer.labelListModel.insertRow(newRow, label)
+
+        if makePermanent:
+            self.drawer.labelListModel.makeRowPermanent(newRow)
+
+        # Make the new label selected
+        selectedRow = self.drawer.labelListModel.rowCount() - 1
+        self.drawer.labelListModel.select(selectedRow)
+
+        QApplication.restoreOverrideCursor()
+
     def initViewerControls(self):
         """
         initializing viewerControl
@@ -308,25 +352,31 @@ class DLClassGui(LayerViewerGui):
         Triggers the prediction by setting the layer on visible
         """
 
-        # IMPROVEME: add ability to change the label names and their color
-
         inputSlot = self.topLevelOperator.InputImage
 
         layers = []
 
-        tintColors = [QColor(0, 0, 255), QColor(255, 0, 0)]  # a couple of predefined class label colors
+        labels = self.drawer.labelListModel
 
         # Add the segmentations
         for channel, segmentationSlot in enumerate(self.topLevelOperatorView.SegmentationChannels):
             if segmentationSlot.ready():
+                ref_label = labels[channel]
                 segsrc = createDataSource(segmentationSlot)
                 segLayer = AlphaModulatedLayer(
-                    segsrc, tintColor=tintColors[channel % len(tintColors)], range=(0.0, 1.0), normalize=(0.0, 1.0)
+                    segsrc, tintColor=ref_label.pmapColor(), range=(0.0, 1.0), normalize=(0.0, 1.0)
                 )
 
                 segLayer.opacity = 1
                 segLayer.visible = False
                 segLayer.visibleChanged.connect(self.updateShowSegmentationCheckbox)
+
+                def setLayerColor(c, segLayer_=segLayer, initializing=False):
+                    if not initializing and segLayer_ not in self.layerstack:
+                        # This layer has been removed from the layerstack already.
+                        # Don't touch it.
+                        return
+                    segLayer_.tintColor = c
 
                 def setSegLayerName(n, segLayer_=segLayer, initializing=False):
                     if not initializing and segLayer_ not in self.layerstack:
@@ -336,19 +386,28 @@ class DLClassGui(LayerViewerGui):
                     newName = "Segmentation of %s" % n
                     segLayer_.name = newName
 
-                setSegLayerName(channel, initializing=True)
-
+                setSegLayerName(ref_label.name, initializing=True)
+                ref_label.pmapColorChanged.connect(setLayerColor)
+                ref_label.nameChanged.connect(setSegLayerName)
                 layers.append(segLayer)
 
         # Add the prediction probabilities
         for channel, predictionSlot in enumerate(self.topLevelOperator.PredictionProbabilityChannels):
             if predictionSlot.ready():
+                ref_label = labels[channel]
                 predictsrc = createDataSource(predictionSlot)
-                predictionLayer = AlphaModulatedLayer(predictsrc, tintColor=tintColors[channel % len(tintColors)],
+                predictionLayer = AlphaModulatedLayer(predictsrc, tintColor=ref_label.pmapColor(),
                                                       range=(0.0, 1.0), normalize=(0.0, 1.0))
-                predictionLayer.visible = self.drawer.liveUpdateButton.isChecked()
                 predictionLayer.opacity = 0.25
+                predictionLayer.visible = self.drawer.liveUpdateButton.isChecked()
                 predictionLayer.visibleChanged.connect(self.updateShowPredictionCheckbox)
+
+                def setLayerColor(c, predictLayer_=predictionLayer, initializing=False):
+                    if not initializing and predictLayer_ not in self.layerstack:
+                        # This layer has been removed from the layerstack already.
+                        # Don't touch it.
+                        return
+                    predictLayer_.tintColor = c
 
                 def setPredLayerName(n, predictLayer_=predictionLayer, initializing=False):
                     """
@@ -361,8 +420,9 @@ class DLClassGui(LayerViewerGui):
                     newName = "Probability of %s" % n
                     predictLayer_.name = newName
 
-                setPredLayerName(channel, initializing=True)
-
+                setPredLayerName(ref_label.name, initializing=True)
+                ref_label.pmapColorChanged.connect(setLayerColor)
+                ref_label.nameChanged.connect(setPredLayerName)
                 layers.append(predictionLayer)
 
         # The raw input data, always as last layer
@@ -385,14 +445,8 @@ class DLClassGui(LayerViewerGui):
 
         # Statement for importing the same classifier twice
         if modelname in self.classifiers.keys():
-            print("Classifier already added")
             QMessageBox.critical(self, "Error loading file", "{} already added".format(modelname))
         else:
-
-            # serialization problems because of group names when using the classifier function as value
-            # self.classifiers[modelname] = TikTorchLazyflowClassifier(None, filename[0], halo_size, batch_size)
-
-            # workAround
             self.classifiers[modelname] = filename
 
             # clear first the comboBox or addItems will duplicate names
