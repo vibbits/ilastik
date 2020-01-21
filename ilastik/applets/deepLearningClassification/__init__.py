@@ -5,5 +5,5 @@ from __future__ import absolute_import
 # Implementation based on ilastik\ilastik\applets\networkClassification
 ###############################################################################
 
-from .dlClassApplet import *
+from .dlClassificationApplet import *
 from .dlClassificationDataExportApplet import DLClassificationDataExportApplet

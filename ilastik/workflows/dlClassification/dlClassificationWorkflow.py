@@ -8,7 +8,7 @@ import logging
 
 from ilastik.workflow import Workflow
 from ilastik.applets.dataSelection import DataSelectionApplet
-from ilastik.applets.deepLearningClassification import DLClassApplet, DLClassificationDataExportApplet
+from ilastik.applets.deepLearningClassification import DLClassificationApplet, DLClassificationDataExportApplet
 from ilastik.applets.batchProcessing import BatchProcessingApplet
 
 from lazyflow.graph import Graph
@@ -76,7 +76,7 @@ class DLClassificationWorkflow(Workflow):
         # see role constants, above
         opDataSelection.DatasetRoles.setValue(DLClassificationWorkflow.ROLE_NAMES)
 
-        self.dlClassificationApplet = DLClassApplet(self, "DLClassApplet")
+        self.dlClassificationApplet = DLClassificationApplet(self, "DLClassificationApplet")
 
         self.dataExportApplet = DLClassificationDataExportApplet(self, "Export Predictions")
         self.dataExportApplet.prepare_for_entire_export = self.prepare_for_entire_export

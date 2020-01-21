@@ -5,18 +5,18 @@
 
 from __future__ import absolute_import
 from ilastik.applets.base.standardApplet import StandardApplet
-from .opDLclass import OpDLClassification
-from .dlClassSerializer import DLClassificationSerializer
+from .opDLClassification import OpDLClassification
+from .dlClassificationSerializer import DLClassificationSerializer
 
 
-class DLClassApplet(StandardApplet):
+class DLClassificationApplet(StandardApplet):
     """
     StandardApplet Subclass with SingleLaneGui and SingeLaneOperator
     """
 
     def __init__(self, workflow, projectFileGroupName):
 
-        super(DLClassApplet, self).__init__("VIB Deep Learning Classification", workflow=workflow)
+        super(DLClassificationApplet, self).__init__("VIB Deep Learning Classification", workflow=workflow)
 
         self._serializableItems = [
             DLClassificationSerializer(self.topLevelOperator, projectFileGroupName)
@@ -43,7 +43,7 @@ class DLClassApplet(StandardApplet):
         """
         This applet uses a single lane gui and shares variables through the broadcasting slots
         """
-        from .dlClassGui import DLClassGui
+        from .dlClassificationGui import DLClassGui
 
         return DLClassGui
 
