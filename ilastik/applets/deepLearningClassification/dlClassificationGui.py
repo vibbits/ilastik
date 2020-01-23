@@ -262,6 +262,7 @@ class DLClassGui(LayerViewerGui):
             drawerPath = os.path.join(localDir, "dlClassificationDrawer.ui")
         self.drawer = uic.loadUi(drawerPath)
 
+        self._setModelGuiVisible(False)
         self.drawer.comboBox.clear()
         self.drawer.liveUpdateButton.clicked.connect(self.dlPredict)
         self.drawer.addModel.clicked.connect(self.addModel)
@@ -470,43 +471,43 @@ class DLClassGui(LayerViewerGui):
         classifier_key = self.drawer.comboBox.currentText()
         classifier_index = self.drawer.comboBox.currentIndex()
 
-        if len(classifier_key) == 0:
-            QMessageBox.critical(self, "Error loading file", "Add a Model first")
+        # A neural network must be present already, because the GUI does not let the user click the Live Prediction
+        # unless a model was loaded before.
+        assert len(classifier_key) > 0
+
+        if self.drawer.liveUpdateButton.isChecked():
+
+            if self.topLevelOperator.FullModel.value:
+                # if the full model object is serialized
+                model_object = self.topLevelOperator.FullModel.value[classifier_index]
+                print(classifier_index)
+                model_path = None
+            else:
+                model_object = None
+                model_path = self.classifiers[classifier_key]
+
+            self.topLevelOperator.FreezePredictions.setValue(False)
+
+            # Create neural network classifier object
+            # we do not want halo's. the neuralnet does its own overlapping and averaging, so we want to send a full image to the neural net - so we pick a very large block size here; so large that the full image fits in it and ilastik only does blocking on the z-planes, but not in x and y
+            model = DeepLearningLazyflowClassifier(model_object, model_path, self.batch_size, self.window_size)
+
+            block_shape = numpy.array([self.batch_size, self.block_size, self.block_size, None])  # (batch size, height, width, ???)   CHECKME: what is the None for?
+            # block_shape is the size of the images that ilastik will feed to the classifier for prediction
+            logger.debug(f"Using block_shape {block_shape}")
+
+            self.topLevelOperator.BlockShape.setValue(block_shape)
+            self.topLevelOperator.NumClasses.setValue(model._net.out_channels)
+
+            self.topLevelOperator.Classifier.setValue(model)
+
+            self.updateAllLayers()
+            self.parentApplet.appletStateUpdateRequested()
 
         else:
-            if self.drawer.liveUpdateButton.isChecked():
-
-                if self.topLevelOperator.FullModel.value:
-                    # if the full model object is serialized
-                    model_object = self.topLevelOperator.FullModel.value[classifier_index]
-                    print(classifier_index)
-                    model_path = None
-                else:
-                    model_object = None
-                    model_path = self.classifiers[classifier_key]
-
-                self.topLevelOperator.FreezePredictions.setValue(False)
-
-                # Create neural network classifier object
-                # we do not want halo's. the neuralnet does its own overlapping and averaging, so we want to send a full image to the neural net - so we pick a very large block size here; so large that the full image fits in it and ilastik only does blocking on the z-planes, but not in x and y
-                model = DeepLearningLazyflowClassifier(model_object, model_path, self.batch_size, self.window_size)
-
-                block_shape = numpy.array([self.batch_size, self.block_size, self.block_size, None])  # (batch size, height, width, ???)   CHECKME: what is the None for?
-                # block_shape is the size of the images that ilastik will feed to the classifier for prediction
-                logger.debug(f"Using block_shape {block_shape}")
-
-                self.topLevelOperator.BlockShape.setValue(block_shape)
-                self.topLevelOperator.NumClasses.setValue(model._net.out_channels)
-
-                self.topLevelOperator.Classifier.setValue(model)
-
-                self.updateAllLayers()
-                self.parentApplet.appletStateUpdateRequested()
-
-            else:
-                # when disabled, the user can scroll around without predicting
-                self.topLevelOperator.FreezePredictions.setValue(True)
-                self.parentApplet.appletStateUpdateRequested()
+            # when disabled, the user can scroll around without predicting
+            self.topLevelOperator.FreezePredictions.setValue(True)
+            self.parentApplet.appletStateUpdateRequested()
 
     @pyqtSlot()
     def handleShowPredictionsClicked(self):
@@ -565,6 +566,17 @@ class DLClassGui(LayerViewerGui):
         else:
             self._viewerControlUi.checkShowSegmentation.setCheckState(Qt.PartiallyChecked)
 
+    def _setModelGuiVisible(self, enable):
+        """
+        Show/hide the part of the user interface with the combo box with loaded models,
+        the list with labels and the Live Prediction button.
+        """
+        self.drawer.modelsLabel.setVisible(enable)
+        self.drawer.comboBox.setVisible(enable)
+        self.drawer.labelsLabel.setVisible(enable)
+        self.drawer.labelListView.setVisible(enable)
+        self.drawer.liveUpdateButton.setVisible(enable)
+
     def addModel(self):
         """
         When Add Model button is clicked.
@@ -580,6 +592,7 @@ class DLClassGui(LayerViewerGui):
         if fileName is not None:
             self.add_DL_classifier(fileName)
             preferences.set("DataSelection", "recent neural net", fileName)
+            self._setModelGuiVisible(True)
 
     def getModelFileNameToOpen(cls, parent_window, defaultDirectory):
         """

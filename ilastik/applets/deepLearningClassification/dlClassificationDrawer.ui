@@ -33,20 +33,6 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="QLabel" name="modelsLabel">
-     <property name="text">
-      <string>Models:</string>
-     </property>
-    </widget>
-   </item>
-   <item>
-    <widget class="QComboBox" name="comboBox">
-     <property name="currentText">
-      <string/>
-     </property>
-    </widget>
-   </item>
-   <item>
     <widget class="QToolButton" name="addModel">
      <property name="sizePolicy">
       <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -62,6 +48,20 @@
      </property>
      <property name="toolButtonStyle">
       <enum>Qt::ToolButtonTextBesideIcon</enum>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="modelsLabel">
+     <property name="text">
+      <string>Models:</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QComboBox" name="comboBox">
+     <property name="currentText">
+      <string/>
      </property>
     </widget>
    </item>
