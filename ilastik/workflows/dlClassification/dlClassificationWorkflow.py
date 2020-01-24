@@ -9,7 +9,10 @@ import logging
 from ilastik.workflow import Workflow
 from ilastik.applets.dataSelection import DataSelectionApplet
 from ilastik.applets.deepLearningClassification import DLClassificationApplet, DLClassificationDataExportApplet
-from ilastik.applets.batchProcessing import BatchProcessingApplet
+
+# Note: batch processing doesn't work yet, so we commented it out to remove it from the UI and avoid confusion.
+
+# from ilastik.applets.batchProcessing import BatchProcessingApplet
 
 from lazyflow.graph import Graph
 
@@ -87,23 +90,23 @@ class DLClassificationWorkflow(Workflow):
         opDataExport.WorkingDirectory.connect(opDataSelection.WorkingDirectory)
         opDataExport.SelectionNames.setValue(self.EXPORT_NAMES)
 
-        self.batchProcessingApplet = BatchProcessingApplet(
-            self, "Batch Processing", self.dataSelectionApplet, self.dataExportApplet
-        )
+        # self.batchProcessingApplet = BatchProcessingApplet(
+        #     self, "Batch Processing", self.dataSelectionApplet, self.dataExportApplet
+        # )
 
         # Expose for shell
         self._applets.append(self.dataSelectionApplet)
         self._applets.append(self.dlClassificationApplet)
         self._applets.append(self.dataExportApplet)
-        self._applets.append(self.batchProcessingApplet)
+        # self._applets.append(self.batchProcessingApplet)
 
         if unused_args:
             # We parse the export setting args first.  All remaining args are considered input files by the input applet.
             self._batch_export_args, unused_args = self.dataExportApplet.parse_known_cmdline_args(unused_args)
-            self._batch_input_args, unused_args = self.batchProcessingApplet.parse_known_cmdline_args(unused_args)
+            # self._batch_input_args, unused_args = self.batchProcessingApplet.parse_known_cmdline_args(unused_args)
         else:
             self._batch_input_args = None
-            self._batch_export_args = None
+            # self._batch_export_args = None
 
         if unused_args:
             logger.warn("Unused command-line args: {}".format(unused_args))
@@ -160,7 +163,7 @@ class DLClassificationWorkflow(Workflow):
         live_update_active = not opDLClassification.FreezePredictions.value
 
         # The user isn't allowed to touch anything while batch processing is running.
-        batch_processing_busy = self.batchProcessingApplet.busy
+        batch_processing_busy = False  # self.batchProcessingApplet.busy
 
         logger.info(f"predictions_ready={predictions_ready} input_ready={input_ready} batch_processing_busy={batch_processing_busy} live_update_active={live_update_active}")
 
@@ -170,8 +173,8 @@ class DLClassificationWorkflow(Workflow):
             self.dataExportApplet, predictions_ready and not batch_processing_busy and not live_update_active
         )
 
-        if self.batchProcessingApplet is not None:
-            self._shell.setAppletEnabled(self.batchProcessingApplet, predictions_ready and not batch_processing_busy)
+        # if self.batchProcessingApplet is not None:
+        #     self._shell.setAppletEnabled(self.batchProcessingApplet, predictions_ready and not batch_processing_busy)
 
         # Lastly, check for certain "busy" conditions, during which we
         # should prevent the shell from closing the project.
@@ -179,7 +182,7 @@ class DLClassificationWorkflow(Workflow):
         busy |= self.dataSelectionApplet.busy
         busy |= self.dlClassificationApplet.busy
         busy |= self.dataExportApplet.busy
-        busy |= self.batchProcessingApplet.busy
+        # busy |= self.batchProcessingApplet.busy
         self._shell.enableProjectChanges(not busy)
 
     def prepare_for_entire_export(self):
