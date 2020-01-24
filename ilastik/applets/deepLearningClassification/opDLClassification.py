@@ -27,7 +27,7 @@ class OpDLClassification(Operator):
     NumClasses = InputSlot()
     BlockShape = InputSlot()
 
-    FreezePredictions = InputSlot(stype="bool", value=False, nonlane=True)
+    FreezePredictions = InputSlot(stype="bool", value=True, nonlane=True)
 
     PredictionProbabilities = OutputSlot()
     CachedPredictionProbabilities = OutputSlot()

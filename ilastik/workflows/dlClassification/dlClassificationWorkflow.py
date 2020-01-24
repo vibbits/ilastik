@@ -10,6 +10,8 @@ from ilastik.workflow import Workflow
 from ilastik.applets.dataSelection import DataSelectionApplet
 from ilastik.applets.deepLearningClassification import DLClassificationApplet, DLClassificationDataExportApplet
 
+from lazyflow.roi import TinyVector
+
 # Note: batch processing doesn't work yet, so we commented it out to remove it from the UI and avoid confusion.
 
 # from ilastik.applets.batchProcessing import BatchProcessingApplet
@@ -154,24 +156,23 @@ class DLClassificationWorkflow(Workflow):
 
         opDataExport = self.dataExportApplet.topLevelOperator
 
-        predictions_ready = input_ready and len(opDataExport.Inputs) > 0
-        # opDataExport.Inputs[0][0].ready()
-        # (TinyVector(opDataExport.Inputs[0][0].meta.shape) > 0).all()
+        predictions_ready = (
+            input_ready
+            and len(opDataExport.Inputs) > 0
+            and opDataExport.Inputs[0][0].ready()
+            and (TinyVector(opDataExport.Inputs[0][0].meta.shape) > 0).all()
+        )
 
-        # Problems can occur if the features or input data are changed during live update mode.
+        # Problems can occur if the input data is changed during live update mode.
         # Don't let the user do that.
         live_update_active = not opDLClassification.FreezePredictions.value
 
         # The user isn't allowed to touch anything while batch processing is running.
         batch_processing_busy = False  # self.batchProcessingApplet.busy
 
-        logger.info(f"predictions_ready={predictions_ready} input_ready={input_ready} batch_processing_busy={batch_processing_busy} live_update_active={live_update_active}")
-
-        self._shell.setAppletEnabled(self.dataSelectionApplet, not batch_processing_busy)
+        self._shell.setAppletEnabled(self.dataSelectionApplet, not live_update_active and not batch_processing_busy)
         self._shell.setAppletEnabled(self.dlClassificationApplet, input_ready and not batch_processing_busy)
-        self._shell.setAppletEnabled(
-            self.dataExportApplet, predictions_ready and not batch_processing_busy and not live_update_active
-        )
+        self._shell.setAppletEnabled(self.dataExportApplet, predictions_ready and not batch_processing_busy)
 
         # if self.batchProcessingApplet is not None:
         #     self._shell.setAppletEnabled(self.batchProcessingApplet, predictions_ready and not batch_processing_busy)
