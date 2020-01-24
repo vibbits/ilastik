@@ -78,7 +78,7 @@ class DLClassificationWorkflow(Workflow):
 
         self.dlClassificationApplet = DLClassificationApplet(self, "DLClassificationApplet")
 
-        self.dataExportApplet = DLClassificationDataExportApplet(self, "Export Predictions")
+        self.dataExportApplet = DLClassificationDataExportApplet(self, "Prediction Export")
         self.dataExportApplet.prepare_for_entire_export = self.prepare_for_entire_export
         self.dataExportApplet.post_process_entire_export = self.post_process_entire_export
 
