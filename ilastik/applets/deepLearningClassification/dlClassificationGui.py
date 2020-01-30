@@ -488,6 +488,13 @@ class DLClassGui(LayerViewerGui):
 
             self.topLevelOperator.FreezePredictions.setValue(False)
 
+            # IMPORTANT FIXMEs:
+            # We get here whenever the user clicks the Live Prediction button
+            # (which really acts like a toggle rather than a one-shot action button - perhaps we ought to replace it with a real toggle?).
+            # But we reload the complete classifier model (which is not needed if the model has not changed = FIXME1),
+            # and moreover, by setting the Classifier in our topLevelOperator, I think we discard the segmentations which
+            # we already calculated (for other slices, or in the Prediction Export panel) = FIXME2.
+
             # Create neural network classifier object
             # we do not want halo's. the neuralnet does its own overlapping and averaging, so we want to send a full image to the neural net - so we pick a very large block size here; so large that the full image fits in it and ilastik only does blocking on the z-planes, but not in x and y
             model = DeepLearningLazyflowClassifier(model_object, model_path, self.batch_size, self.window_size)
