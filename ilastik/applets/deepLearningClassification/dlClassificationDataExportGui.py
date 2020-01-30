@@ -3,11 +3,16 @@
 # Implementation based on ilastik\ilastik\applets\networkClassification
 ###############################################################################
 
+import logging
+
+from PyQt5.QtGui import QColor
 
 from lazyflow.operators.generic import OpMultiArraySlicer2
-from volumina.api import createDataSource, AlphaModulatedLayer
+from volumina.api import createDataSource, AlphaModulatedLayer, ColortableLayer
 from ilastik.applets.dataExport.dataExportGui import DataExportGui, DataExportLayerViewerGui
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 class DLClassificationDataExportGui(DataExportGui):
     """
@@ -30,22 +35,34 @@ class DLClassificationResultsViewer(DataExportLayerViewerGui):
         layers = []
         opLane = self.topLevelOperatorView
 
+
         # This code depends on a specific order for the export slots.
         # If those change, update this function!
         selection_names = opLane.SelectionNames.value
 
         # see comment above
-        for name, expected in zip(selection_names[0:1], ["Probabilities"]):
+        # Note: the selection_names are defined in workflows/dlClassification/dlClassificationWorkflow.py
+        for name, expected in zip(selection_names[0:1], ["Probabilities", "Segmentation"]):
             assert name.startswith(expected), "The Selection Names don't match the expected selection names."
 
         selection = selection_names[opLane.InputSelection.value]
+
+        logger.debug(f"DLClassificationDataExportGui / DLClassificationResultsViewer: setupLayers: opLane={opLane} selection={selection}")
+
 
         if selection.startswith("Probabilities"):
             exportedLayers = self._initPredictionLayers(opLane.ImageToExport)
             for layer in exportedLayers:
                 layer.visible = True
-                layer.name = layer.name + "- Exported"
+                layer.name = layer.name + " - for export"
             layers += exportedLayers
+
+        elif selection.startswith("Segmentation"):
+            layer = self._initColortablelayer(opLane.ImageToExport)
+            if layer:
+                layer.visible = True
+                layer.name = selection + " - for export"
+            layers.append(layer)
 
         # If available, also show the raw data layer
         rawSlot = opLane.FormattedRawData
@@ -90,3 +107,19 @@ class DLClassificationResultsViewer(DataExportLayerViewerGui):
                 layers.append(predictLayer)
 
         return layers
+
+    def _initColortablelayer(self, segSlot):
+        """
+        Used to export segmentation
+        """
+        if not segSlot.ready():
+            return None
+        opLane = self.topLevelOperatorView
+        colors = [(255, 0, 0), (0, 255, 0)]  # FIXME: opLane.PmapColors.value
+        colortable = []
+        colortable.append(QColor(0, 0, 0, 0).rgba())  # transparent
+        for color in colors:
+            colortable.append(QColor(*color).rgba())
+        segsrc = createDataSource(segSlot)
+        seglayer = ColortableLayer(segsrc, colortable)
+        return seglayer

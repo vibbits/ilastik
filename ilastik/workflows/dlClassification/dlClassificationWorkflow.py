@@ -19,6 +19,7 @@ from lazyflow.roi import TinyVector
 from lazyflow.graph import Graph
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 class DLClassificationWorkflow(Workflow):
@@ -32,7 +33,7 @@ class DLClassificationWorkflow(Workflow):
 
     DATA_ROLE_RAW = 0
     ROLE_NAMES = ["Raw Data"]
-    EXPORT_NAMES = ["Probabilities"]  # CHECKME: should we add segmentations too?
+    EXPORT_NAMES = ["Probabilities", "Segmentation"]
 
     @property
     def applets(self):
@@ -140,8 +141,9 @@ class DLClassificationWorkflow(Workflow):
         opDataExport.RawDatasetInfo.connect(opData.DatasetGroup[self.DATA_ROLE_RAW])
         opDataExport.Inputs.resize(len(self.EXPORT_NAMES))
         opDataExport.Inputs[0].connect(opDLclassify.CachedPredictionProbabilities)
-        for slot in opDataExport.Inputs:
-            assert slot.upstream_slot is not None
+        opDataExport.Inputs[1].connect(opDLclassify.SimpleSegmentation)
+        # for slot in opDataExport.Inputs:
+        #     assert slot.upstream_slot is not None
 
     def handleAppletStateUpdateRequested(self):
         """
@@ -193,6 +195,7 @@ class DLClassificationWorkflow(Workflow):
         """
         # Unfreeze the classifier caches (ensure that we're exporting based on up-to-date labels)
         # CHECKME: Is this really needed? If so, explain in more detail why.
+        logger.debug("DLClassificationWorkflow.prepare_for_entire_export: Setting FreezePredictions to False")
         self.freeze_status = self.dlClassificationApplet.topLevelOperator.FreezePredictions.value
         self.dlClassificationApplet.topLevelOperator.FreezePredictions.setValue(False)
 
@@ -201,4 +204,5 @@ class DLClassificationWorkflow(Workflow):
         Assigned to DataExportApplet.post_process_entire_export
         (See above.)
         """
+        logger.debug("DLClassificationWorkflow.post_process_entire_export: restoring FreezePredictions")
         self.dlClassificationApplet.topLevelOperator.FreezePredictions.setValue(self.freeze_status)

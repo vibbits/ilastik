@@ -3,15 +3,20 @@
 # Implementation based on ilastik\ilastik\applets\networkClassification
 ###############################################################################
 
-
 from __future__ import print_function
+
+import logging
+
 from lazyflow.graph import Operator, InputSlot, OutputSlot
 from lazyflow.operators.opBlockedArrayCache import OpBlockedArrayCache
 from lazyflow.operators.classifierOperators import OpPixelwiseClassifierPredict
 from lazyflow.operators import OpMultiArraySlicer2, OpMaxChannelIndicatorOperator
+from ilastik.applets.pixelClassification.opPixelClassification import OpArgmaxChannel
 
 from ilastik.utility.operatorSubView import OperatorSubView
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 class OpDLClassification(Operator):
     """
@@ -33,6 +38,7 @@ class OpDLClassification(Operator):
     CachedPredictionProbabilities = OutputSlot()
     PredictionProbabilityChannels = OutputSlot(level=1)
     SegmentationChannels = OutputSlot(level=1)
+    SimpleSegmentation = OutputSlot()
 
     # Gui only (not part of the pipeline)
     ModelPath = InputSlot()  # Path
@@ -60,6 +66,10 @@ class OpDLClassification(Operator):
         self.prediction_cache.inputs["fixAtCurrent"].connect(self.FreezePredictions)
         self.CachedPredictionProbabilities.connect(self.prediction_cache.Output)
 
+        self.opArgmaxChannel = OpArgmaxChannel(parent=self)
+        self.opArgmaxChannel.Input.connect(self.prediction_cache.Output)
+        self.SimpleSegmentation.connect(self.opArgmaxChannel.Output)
+
         self.opPredictionSlicer = OpMultiArraySlicer2(parent=self)
         self.opPredictionSlicer.name = "opPredictionSlicer"
         self.opPredictionSlicer.Input.connect(self.prediction_cache.Output)
@@ -79,7 +89,10 @@ class OpDLClassification(Operator):
         """
         PredicitionProbabilityChannels is called when the visibility of SetupLayers is changed
         """
+        logger.debug(f"OpDLClassification.propagateDirty slot={slot} subindex={subindex} roi={roi} -> setting PredictionProbabilityChannels dirty")
         self.PredictionProbabilityChannels.setDirty(slice(None))
+        # FIXME/CHECKME Why is this needed? To force calculation of the complete output?
+        # FIXME/CHECKME Why only for PredictionProbabilityChannels? Why not for SegmentationChannels, for example?
 
     def addLane(self, laneIndex):
         pass
