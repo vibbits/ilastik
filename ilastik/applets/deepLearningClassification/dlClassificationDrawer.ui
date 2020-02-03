@@ -33,7 +33,7 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="QToolButton" name="addModel">
+    <widget class="QToolButton" name="loadModel">
      <property name="sizePolicy">
       <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
        <horstretch>0</horstretch>
@@ -41,7 +41,7 @@
       </sizepolicy>
      </property>
      <property name="text">
-      <string>Add Model</string>
+      <string>Load Model</string>
      </property>
      <property name="checkable">
       <bool>true</bool>
@@ -54,7 +54,7 @@
    <item>
     <widget class="QLabel" name="modelsLabel">
      <property name="text">
-      <string>Models:</string>
+      <string>Model:</string>
      </property>
     </widget>
    </item>

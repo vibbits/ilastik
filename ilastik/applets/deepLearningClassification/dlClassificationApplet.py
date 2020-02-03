@@ -29,7 +29,7 @@ class DLClassificationApplet(StandardApplet):
         """
         defines which variables will be shared with different lanes
         """
-        return ["ModelPath", "FullModel", "FreezePredictions"]
+        return ["ModelPath", "FreezePredictions"]  # perhaps lateron "FullModel" too
 
     @property
     def dataSerializers(self):

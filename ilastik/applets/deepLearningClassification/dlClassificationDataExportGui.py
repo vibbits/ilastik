@@ -32,12 +32,8 @@ class DLClassificationResultsViewer(DataExportLayerViewerGui):
         super(DLClassificationResultsViewer, self).__init__(*args, **kwargs)
 
     def setupLayers(self):
-        layers = []
         opLane = self.topLevelOperatorView
 
-
-        # This code depends on a specific order for the export slots.
-        # If those change, update this function!
         selection_names = opLane.SelectionNames.value
 
         # see comment above
@@ -49,19 +45,19 @@ class DLClassificationResultsViewer(DataExportLayerViewerGui):
 
         logger.debug(f"DLClassificationDataExportGui / DLClassificationResultsViewer: setupLayers: opLane={opLane} selection={selection}")
 
-
+        layers = []
         if selection.startswith("Probabilities"):
             exportedLayers = self._initPredictionLayers(opLane.ImageToExport)
             for layer in exportedLayers:
                 layer.visible = True
-                layer.name = layer.name + " - for export"
+                layer.name = layer.name + " - preview"
             layers += exportedLayers
 
         elif selection.startswith("Segmentation"):
             layer = self._initColortablelayer(opLane.ImageToExport)
             if layer:
                 layer.visible = True
-                layer.name = selection + " - for export"
+                layer.name = selection + " - preview"
             layers.append(layer)
 
         # If available, also show the raw data layer
@@ -117,7 +113,7 @@ class DLClassificationResultsViewer(DataExportLayerViewerGui):
         opLane = self.topLevelOperatorView
         colors = [(255, 0, 0), (0, 255, 0)]  # FIXME: opLane.PmapColors.value
         colortable = []
-        colortable.append(QColor(0, 0, 0, 0).rgba())  # transparent
+        colortable.append(QColor(0, 0, 255, 0).rgba())  # transparent   # FIXME FIXME: should be 0 0 0 0
         for color in colors:
             colortable.append(QColor(*color).rgba())
         segsrc = createDataSource(segSlot)

@@ -15,7 +15,7 @@ class DLClassificationSerializer(AppletSerializer):
         self.VERSION = 1
 
         slots = [
-            SerialPickleableSlot(topLevelOperator.FullModel, version=1),
+            # SerialPickleableSlot(topLevelOperator.FullModel, version=1),
             SerialDictSlot(topLevelOperator.ModelPath),
         ]
 

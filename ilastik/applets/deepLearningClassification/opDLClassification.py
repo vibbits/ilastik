@@ -41,12 +41,12 @@ class OpDLClassification(Operator):
     SimpleSegmentation = OutputSlot()
 
     # Gui only (not part of the pipeline)
-    ModelPath = InputSlot()  # Path
-    FullModel = InputSlot(value=[])  # When full model serialization is enabled
+    ModelPath = InputSlot()  # Path (a single string) to the neural network saved via pytorch
+    # FullModel = InputSlot(value=[])  # When full model serialization is enabled
+    # SaveFullModel = InputSlot(stype="bool", value=False, nonlane=True)
     Batch_Size = InputSlot(value=1)
     Block_Size = InputSlot(value=16 * 1024)
     Window_Size = InputSlot(value=256)  # the neural net will break up large images (of size up to Block_size) into smaller overlapping windows of size Window_Size
-    SaveFullModel = InputSlot(stype="bool", value=False, nonlane=True)
 
     def __init__(self, *args, **kwargs):
 

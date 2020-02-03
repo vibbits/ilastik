@@ -124,39 +124,39 @@ class ParameterDlg(QDialog):
         super(ParameterDlg, self).accept()
 
 
-class SavingDlg(QDialog):
-    """
-    Saving Option Dialog
-    """
-
-    def __init__(self, topLevelOperator, parent):
-        super(QDialog, self).__init__(parent=parent)
-
-        self.topLevelOperator = topLevelOperator
-
-        buttonbox = QDialogButtonBox(Qt.Horizontal, parent=self)
-        buttonbox.setStandardButtons(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttonbox.accepted.connect(self.change_state)
-        buttonbox.rejected.connect(self.reject)
-
-        self.checkbox = QCheckBox()
-        self.checkbox.setChecked(self.topLevelOperator.SaveFullModel.value)
-        self.checkbox.setCheckable(True)
-        self.checkbox.setText("Enable Model Object serialization")
-
-        layout = QVBoxLayout()
-        layout.addWidget(self.checkbox)
-        layout.addWidget(buttonbox)
-
-        self.setLayout(layout)
-        self.setWindowTitle("Saving Options")
-
-    def change_state(self):
-
-        self.topLevelOperator.SaveFullModel.setValue(self.checkbox.isChecked())
-
-        # close dialog
-        super(SavingDlg, self).accept()
+# class SavingDlg(QDialog):
+#     """
+#     Saving Option Dialog
+#     """
+#
+#     def __init__(self, topLevelOperator, parent):
+#         super(QDialog, self).__init__(parent=parent)
+#
+#         self.topLevelOperator = topLevelOperator
+#
+#         buttonbox = QDialogButtonBox(Qt.Horizontal, parent=self)
+#         buttonbox.setStandardButtons(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+#         buttonbox.accepted.connect(self.change_state)
+#         buttonbox.rejected.connect(self.reject)
+#
+#         self.checkbox = QCheckBox()
+#         self.checkbox.setChecked(self.topLevelOperator.SaveFullModel.value)
+#         self.checkbox.setCheckable(True)
+#         self.checkbox.setText("Enable Model Object serialization")
+#
+#         layout = QVBoxLayout()
+#         layout.addWidget(self.checkbox)
+#         layout.addWidget(buttonbox)
+#
+#         self.setLayout(layout)
+#         self.setWindowTitle("Saving Options")
+#
+#     def change_state(self):
+#
+#         self.topLevelOperator.SaveFullModel.setValue(self.checkbox.isChecked())
+#
+#         # close dialog
+#         super(SavingDlg, self).accept()
 
 
 class DLClassGui(LayerViewerGui):
@@ -205,25 +205,23 @@ class DLClassGui(LayerViewerGui):
         set_parameter = advanced_menu.addAction("Parameters...")
         set_parameter.triggered.connect(settingParameter)
 
-        def serializing_options():
-            """
-            enable/disable serialization options
-            """
-            dlg = SavingDlg(self.topLevelOperator, parent=self)
-            dlg.exec_()
+        # def serializing_options():
+        #     """
+        #     enable/disable serialization options
+        #     """
+        #     dlg = SavingDlg(self.topLevelOperator, parent=self)
+        #     dlg.exec_()
+        #
+        #     if self.topLevelOperator.SaveFullModel.value == True:
+        #         obj_list = []
+        #         for key in self.topLevelOperator.ModelPath.value:  # FIXME: meanwhile ModelPath is just a single path string, not a list/dict
+        #             logger.debug(f"dlClassGui serializing_options(): loading neural net {self.topLevelOperator.ModelPath.value[key]}")
+        #             object_ = load_net(self.topLevelOperator.ModelPath.value[key])
+        #             obj_list.append(object_)
+        #
+        #         self.topLevelOperator.FullModel.setValue(obj_list)
 
-            if self.topLevelOperator.SaveFullModel.value == True:
-                obj_list = []
-                # print(list(self.topLevelOperator.ModelPath.value.values())[0])
-                # object_ = torch.load(list(self.topLevelOperator.ModelPath.value.values())[0])
-                for key in self.topLevelOperator.ModelPath.value:
-                    logger.debug(f"dlClassGui serializing_options(): loading neural net {self.topLevelOperator.ModelPath.value[key]}")
-                    object_ = load_net(self.topLevelOperator.ModelPath.value[key])
-                    obj_list.append(object_)
-
-                self.topLevelOperator.FullModel.setValue(obj_list)
-
-        advanced_menu.addAction("Saving Options").triggered.connect(serializing_options)
+        # advanced_menu.addAction("Saving Options").triggered.connect(serializing_options)
 
         menus += [advanced_menu]
 
@@ -241,7 +239,7 @@ class DLClassGui(LayerViewerGui):
         self.parentApplet = parentApplet
         self.drawer = None
         self.topLevelOperator = topLevelOperator
-        self.classifiers = OrderedDict()
+        self.classifier = None
 
         self.__cleanup_fns = []
 
@@ -264,15 +262,13 @@ class DLClassGui(LayerViewerGui):
 
         self._setModelGuiVisible(False)
         self.drawer.comboBox.clear()
-        self.drawer.liveUpdateButton.clicked.connect(self.dlPredict)
-        self.drawer.addModel.clicked.connect(self.addModel)
+        self.drawer.liveUpdateButton.clicked.connect(self._livePredictionClicked)
+        self.drawer.loadModel.clicked.connect(self._loadModelButtonClicked)
 
         if self.topLevelOperator.ModelPath.ready():
-
+            self.classifier = self.topLevelOperator.ModelPath.value
             self.drawer.comboBox.clear()
-            self.drawer.comboBox.addItems(self.topLevelOperator.ModelPath.value)
-
-            self.classifiers = self.topLevelOperator.ModelPath.value
+            self.drawer.comboBox.addItem(self.topLevelOperator.ModelPath.value)
 
         # Model for our list of classification labels (=classes)
         model = LabelListModel()
@@ -436,85 +432,43 @@ class DLClassGui(LayerViewerGui):
 
         return layers
 
-    def add_DL_classifier(self, filename):
-        """
-        Adds the chosen FilePath to the classifierDictionary and to the ComboBox
-        """
+    def _setClassifierModel(self, filename):
+        self.classifier = filename
 
-        # split path string
+        # Create combo box with just a single model / classifier.
+        # Perhaps later we ought to use something else than a combo box.
         modelname = os.path.basename(os.path.normpath(filename))
+        self.drawer.comboBox.clear()
+        self.drawer.comboBox.addItem(modelname)
 
-        # Statement for importing the same classifier twice
-        if modelname in self.classifiers.keys():
-            QMessageBox.critical(self, "Error loading file", "{} already added".format(modelname))
-        else:
-            self.classifiers[modelname] = filename
+        # Create neural network classifier object
+        # We do not want Ilastik's halo's. the neuralnet does its own overlapping and averaging, so we want to send
+        # a full image to the neural net - so we pick a very large block size here; so large that the full image fits
+        # in it and ilastik only does blocking on the z-planes, but not in x and y.
+        model = DeepLearningLazyflowClassifier(None, filename, self.batch_size, self.window_size)
 
-            # clear first the comboBox or addItems will duplicate names
-            self.drawer.comboBox.clear()
-            self.drawer.comboBox.addItems(self.classifiers)
+        block_shape = numpy.array([self.batch_size, self.block_size, self.block_size,
+                                   None])  # (batch size, height, width, ???)   CHECKME: what is the None for?
+        # block_shape is the size of the images that ilastik will feed to the classifier for prediction
+        logger.debug(f"Using block_shape {block_shape}")
 
-            if self.topLevelOperator.SaveFullModel.value == True:
-                logger.debug(f"dlClassGui add_DL_classifiers(): loading {filename}")
-                object_ = load_net(filename)
-                self.topLevelOperator.FullModel.setValue(object_)
+        self.topLevelOperator.ModelPath.setValue(self.classifier)
+        self.topLevelOperator.FreezePredictions.setValue(True)
+        self.topLevelOperator.BlockShape.setValue(block_shape)
+        self.topLevelOperator.NumClasses.setValue(model._net.out_channels)
+        self.topLevelOperator.Classifier.setValue(model)
 
-            else:
-                self.topLevelOperator.ModelPath.setValue(self.classifiers)
+        self.updateAllLayers()  # CHECKME needed?
+        self.parentApplet.appletStateUpdateRequested()  # CHECKME needed?
 
-    def dlPredict(self):
+    def _livePredictionClicked(self):
         """
-        When LivePredictionButton is clicked.
-        Sets the ClassifierSlotValue for Prediction.
-        Updates the SetupLayers function
         """
-        classifier_key = self.drawer.comboBox.currentText()
-        classifier_index = self.drawer.comboBox.currentIndex()
-
-        # A neural network must be present already, because the GUI does not let the user click the Live Prediction
-        # unless a model was loaded before.
-        assert len(classifier_key) > 0
-
-        if self.drawer.liveUpdateButton.isChecked():
-
-            if self.topLevelOperator.FullModel.value:
-                # if the full model object is serialized
-                model_object = self.topLevelOperator.FullModel.value[classifier_index]
-                print(classifier_index)
-                model_path = None
-            else:
-                model_object = None
-                model_path = self.classifiers[classifier_key]
-
-            self.topLevelOperator.FreezePredictions.setValue(False)
-
-            # IMPORTANT FIXMEs:
-            # We get here whenever the user clicks the Live Prediction button
-            # (which really acts like a toggle rather than a one-shot action button - perhaps we ought to replace it with a real toggle?).
-            # But we reload the complete classifier model (which is not needed if the model has not changed = FIXME1),
-            # and moreover, by setting the Classifier in our topLevelOperator, I think we discard the segmentations which
-            # we already calculated (for other slices, or in the Prediction Export panel) = FIXME2.
-
-            # Create neural network classifier object
-            # we do not want halo's. the neuralnet does its own overlapping and averaging, so we want to send a full image to the neural net - so we pick a very large block size here; so large that the full image fits in it and ilastik only does blocking on the z-planes, but not in x and y
-            model = DeepLearningLazyflowClassifier(model_object, model_path, self.batch_size, self.window_size)
-
-            block_shape = numpy.array([self.batch_size, self.block_size, self.block_size, None])  # (batch size, height, width, ???)   CHECKME: what is the None for?
-            # block_shape is the size of the images that ilastik will feed to the classifier for prediction
-            logger.debug(f"Using block_shape {block_shape}")
-
-            self.topLevelOperator.BlockShape.setValue(block_shape)
-            self.topLevelOperator.NumClasses.setValue(model._net.out_channels)
-
-            self.topLevelOperator.Classifier.setValue(model)
-
+        livePrediction = self.drawer.liveUpdateButton.isChecked()
+        self.topLevelOperator.FreezePredictions.setValue(not livePrediction)
+        if livePrediction:
             self.updateAllLayers()
-            self.parentApplet.appletStateUpdateRequested()
-
-        else:
-            # when disabled, the user can scroll around without predicting
-            self.topLevelOperator.FreezePredictions.setValue(True)
-            self.parentApplet.appletStateUpdateRequested()
+        self.parentApplet.appletStateUpdateRequested()
 
     @pyqtSlot()
     def handleShowPredictionsClicked(self):
@@ -584,9 +538,9 @@ class DLClassGui(LayerViewerGui):
         self.drawer.labelListView.setVisible(enable)
         self.drawer.liveUpdateButton.setVisible(enable)
 
-    def addModel(self):
+    def _loadModelButtonClicked(self):
         """
-        When Add Model button is clicked.
+        When Load Model button is clicked.
         """
         mostRecentModelFile = preferences.get("DataSelection", "recent neural net")
         if mostRecentModelFile is not None:
@@ -597,7 +551,7 @@ class DLClassGui(LayerViewerGui):
         fileName = self.getModelFileNameToOpen(self, defaultDirectory)
 
         if fileName is not None:
-            self.add_DL_classifier(fileName)
+            self._setClassifierModel(fileName)
             preferences.set("DataSelection", "recent neural net", fileName)
             self._setModelGuiVisible(True)
 
