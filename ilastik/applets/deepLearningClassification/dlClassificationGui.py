@@ -389,7 +389,7 @@ class DLClassGui(LayerViewerGui):
                 layers.append(segLayer)
 
         # Add the prediction probabilities
-        for channel, predictionSlot in enumerate(self.topLevelOperator.PredictionProbabilityChannels):
+        for channel, predictionSlot in enumerate(self.topLevelOperator.PredictionProbabilityChannels):  # CHECKME: would CachedPredictionProbabilities be better?
             if predictionSlot.ready():
                 ref_label = labels[channel]
                 predictsrc = createDataSource(predictionSlot)
