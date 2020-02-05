@@ -134,14 +134,13 @@ class DLClassificationWorkflow(Workflow):
 
         # Input Image -> Classification Op
         opDLclassify.InputImage.connect(opData.Image)
-        # opClassify.PredictionMasks.connect(opData.ImageGroup[self.Roles.PREDICTION_MASK])   # Needed??
 
         # Data Export connections
         opDataExport.RawData.connect(opData.ImageGroup[self.DATA_ROLE_RAW])
         opDataExport.RawDatasetInfo.connect(opData.DatasetGroup[self.DATA_ROLE_RAW])
         opDataExport.Inputs.resize(len(self.EXPORT_NAMES))
         opDataExport.Inputs[0].connect(opDLclassify.CachedPredictionProbabilities)
-        opDataExport.Inputs[1].connect(opDLclassify.SimpleSegmentation)
+        opDataExport.Inputs[1].connect(opDLclassify.Segmentation)
         # for slot in opDataExport.Inputs:
         #     assert slot.upstream_slot is not None
 
